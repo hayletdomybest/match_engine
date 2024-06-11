@@ -1,7 +1,6 @@
 package order_test
 
 import (
-	"match_engine/domain"
 	odr "match_engine/domain/order"
 	"testing"
 
@@ -13,11 +12,11 @@ func TestFilledOrder(t *testing.T) {
 		Id:             1,
 		MarketId:       1,
 		MarketCode:     "BTC-USD",
-		Type:           domain.Limit,
+		Type:           odr.Limit,
 		Quantity:       10.5,
 		FilledQuantity: 10.5,
 		Price:          45000.0,
-		Direction:      domain.Ask,
+		Direction:      odr.Ask,
 		Status:         odr.New,
 	})
 	order.Done()
@@ -30,11 +29,11 @@ func TestShouldPanic(t *testing.T) {
 		Id:             1,
 		MarketId:       1,
 		MarketCode:     "BTC-USD",
-		Type:           domain.Limit,
+		Type:           odr.Limit,
 		Quantity:       10.5,
 		FilledQuantity: 0,
 		Price:          45000.0,
-		Direction:      domain.Ask,
+		Direction:      odr.Ask,
 		Status:         odr.New,
 	})
 	assert.Panics(t, func() {
@@ -47,11 +46,11 @@ func TestMarshal(t *testing.T) {
 		Id:             1,
 		MarketId:       1,
 		MarketCode:     "BTC-USD",
-		Type:           domain.Limit,
+		Type:           odr.Limit,
 		Quantity:       10.5,
 		FilledQuantity: 10.5,
 		Price:          45000.0,
-		Direction:      domain.Ask,
+		Direction:      odr.Ask,
 		Status:         odr.New,
 	})
 
