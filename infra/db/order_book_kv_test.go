@@ -27,3 +27,24 @@ func TestAddOrder(t *testing.T) {
 	bz2, _ := json.Marshal(*order)
 	assert.Equal(t, string(bz2), string(bz1))
 }
+
+func TestSnapshot(t *testing.T) {
+	orderbook := db.NewOrderBookKV()
+
+	market := app.DefaultMarkets[0]
+
+	order, _ := odr.NewOrder(1, market.Id, market.Code, domain.Limit, 10, 100, domain.Bid)
+	orderbook.AddOrders(*order)
+
+	snap := orderbook.CreateSnap()
+
+	orderbook2 := db.NewOrderBookKV()
+	orderbook2.LoadSnap(snap)
+
+	getOrders := orderbook2.GetOrderBookValue(market.Code, domain.Bid)
+	assert.Equal(t, 1, len(getOrders))
+
+	bz1, _ := json.Marshal(getOrders[0])
+	bz2, _ := json.Marshal(*order)
+	assert.Equal(t, string(bz2), string(bz1))
+}
