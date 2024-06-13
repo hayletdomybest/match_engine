@@ -1,7 +1,7 @@
 package order
 
 type OrderRepository interface {
-	Save(order *Order) error
-	FindById(orderId string) (*Order, error)
-	FindMatchingOrders(order *Order) ([]*Order, error)
+	Save(...Order) error
+	FindById(uint64) (*Order, error)
+	FetchMatchingOrders(Order, uint64) ([]Order, error)
 }

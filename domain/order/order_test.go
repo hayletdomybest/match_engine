@@ -8,7 +8,7 @@ import (
 )
 
 func TestFilledOrder(t *testing.T) {
-	order := odr.NewOrderAggregate(odr.Order{
+	order := odr.NewOrderAggregate(&odr.Order{
 		Id:             1,
 		MarketId:       1,
 		MarketCode:     "BTC-USD",
@@ -16,8 +16,8 @@ func TestFilledOrder(t *testing.T) {
 		Quantity:       10.5,
 		FilledQuantity: 10.5,
 		Price:          45000.0,
-		Direction:      odr.Ask,
-		Status:         odr.New,
+		Side:           odr.Sell,
+		Status:         odr.Pending,
 	})
 	order.Done()
 
@@ -25,7 +25,7 @@ func TestFilledOrder(t *testing.T) {
 }
 
 func TestShouldPanic(t *testing.T) {
-	order := odr.NewOrderAggregate(odr.Order{
+	order := odr.NewOrderAggregate(&odr.Order{
 		Id:             1,
 		MarketId:       1,
 		MarketCode:     "BTC-USD",
@@ -33,8 +33,8 @@ func TestShouldPanic(t *testing.T) {
 		Quantity:       10.5,
 		FilledQuantity: 0,
 		Price:          45000.0,
-		Direction:      odr.Ask,
-		Status:         odr.New,
+		Side:           odr.Sell,
+		Status:         odr.Pending,
 	})
 	assert.Panics(t, func() {
 		order.Done()
@@ -42,7 +42,7 @@ func TestShouldPanic(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
-	order := odr.NewOrderAggregate(odr.Order{
+	order := odr.NewOrderAggregate(&odr.Order{
 		Id:             1,
 		MarketId:       1,
 		MarketCode:     "BTC-USD",
@@ -50,8 +50,8 @@ func TestMarshal(t *testing.T) {
 		Quantity:       10.5,
 		FilledQuantity: 10.5,
 		Price:          45000.0,
-		Direction:      odr.Ask,
-		Status:         odr.New,
+		Side:           odr.Sell,
+		Status:         odr.Pending,
 	})
 
 	bz := order.Marshal()

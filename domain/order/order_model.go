@@ -13,14 +13,14 @@ type Order struct {
 	Quantity       float64   `json:"quantity"`
 	FilledQuantity float64   `json:"filled_quantity"`
 	Price          float64   `json:"price"`
-	Direction      Direction `json:"direction"`
+	Side           Side      `json:"direction"`
 	Status         Status    `json:"status"`
 	Timestamp      int64     `json:"timestamp"`
 }
 
 func NewOrder(
 	id uint64, marketId uint64, marketCode string,
-	orderType OrderType, quantity float64, price float64, direction Direction) (*Order, error) {
+	orderType OrderType, price float64, quantity float64, direction Side) (*Order, error) {
 	if marketId == 0 || marketCode == "" || quantity == 0 || price == 0 {
 		return nil, errors.New("missing required fields")
 	}
@@ -31,8 +31,8 @@ func NewOrder(
 		Type:       orderType,
 		Quantity:   quantity,
 		Price:      price,
-		Direction:  direction,
-		Status:     New,
+		Side:       direction,
+		Status:     Pending,
 		Timestamp:  time.Now().UnixMilli(),
 	}, nil
 }

@@ -3,16 +3,16 @@ package order
 type Status int
 
 const (
-	New Status = iota
+	Pending Status = iota
 	Canceled
 	FullFiled
 	PartialFilled
 )
 
-var strStatus = []string{"new", "canceled", "fullFilled", "partialFilled"}
+var strStatus = []string{"pending", "canceled", "fullFilled", "partialFilled"}
 
 func (s Status) IsDone() bool {
-	return s != New
+	return s != Pending
 }
 
 func (s Status) ToString() string {
@@ -23,16 +23,16 @@ func (s Status) ToString() string {
 	return strStatus[s]
 }
 
-type Direction int
+type Side int
 
 const (
-	Bid Direction = iota
-	Ask
+	Buy Side = iota
+	Sell
 )
 
 var strDirection = []string{"bid", "ask"}
 
-func (d Direction) ToString() string {
+func (d Side) ToString() string {
 	if int(d) >= len(strDirection) || int(d) < 0 {
 		panic("direction out of range")
 	}
