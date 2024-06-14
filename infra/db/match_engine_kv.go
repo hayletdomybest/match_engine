@@ -36,7 +36,7 @@ func (kv *MatchEngineKv) FindById(orderId uint64) (*odr.Order, error) {
 }
 
 func (kv *MatchEngineKv) FetchMatchingOrders(order odr.Order, total uint64) ([]odr.Order, error) {
-	key := OrderBookValueKey(order.MarketCode, odr.OppositeSide(order.Side))
+	key := OrderBookValueKey(order.Symbol, odr.OppositeSide(order.Side))
 	orders, existed := kv.Orderbook[key]
 	if !existed {
 		return []odr.Order{}, nil
@@ -83,7 +83,7 @@ func (book *MatchEngineKv) CreateSnap() []byte {
 }
 
 func (kv *MatchEngineKv) appendOrderbook(order *odr.Order) error {
-	key := OrderBookValueKey(order.MarketCode, order.Side)
+	key := OrderBookValueKey(order.Symbol, order.Side)
 	direction := order.Side
 
 	_, existed := kv.Orderbook[key]

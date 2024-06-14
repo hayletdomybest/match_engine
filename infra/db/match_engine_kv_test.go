@@ -16,7 +16,7 @@ func TestSave(t *testing.T) {
 
 	market := app.DefaultMarkets[0]
 
-	order, _ := odr.NewOrder(1, market.Id, market.Code, odr.Limit, 10, 100, odr.Buy)
+	order, _ := odr.NewOrder(1, market.Symbol, odr.Limit, 10, 100, odr.Buy)
 	kv.Save(*order)
 
 	find, _ := kv.FindById(order.Id)
@@ -31,14 +31,14 @@ func TestFetchMatchingOrders(t *testing.T) {
 
 	market := app.DefaultMarkets[0]
 
-	order, _ := odr.NewOrder(1, market.Id, market.Code, odr.Limit, 100, 10, odr.Buy)
+	order, _ := odr.NewOrder(1, market.Symbol, odr.Limit, 100, 10, odr.Buy)
 	kv.Save(*order)
-	order, _ = odr.NewOrder(2, market.Id, market.Code, odr.Limit, 101, 10, odr.Buy)
+	order, _ = odr.NewOrder(2, market.Symbol, odr.Limit, 101, 10, odr.Buy)
 	kv.Save(*order)
-	order, _ = odr.NewOrder(3, market.Id, market.Code, odr.Limit, 102, 10, odr.Buy)
+	order, _ = odr.NewOrder(3, market.Symbol, odr.Limit, 102, 10, odr.Buy)
 	kv.Save(*order)
 
-	sell, _ := odr.NewOrder(4, market.Id, market.Code, odr.Limit, 101, 20, odr.Sell)
+	sell, _ := odr.NewOrder(4, market.Symbol, odr.Limit, 101, 20, odr.Sell)
 	find, _ := kv.FetchMatchingOrders(*sell, 3)
 
 	assert.Equal(t, 2, len(find))

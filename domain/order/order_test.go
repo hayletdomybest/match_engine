@@ -10,8 +10,7 @@ import (
 func TestFilledOrder(t *testing.T) {
 	order := odr.NewOrderAggregate(&odr.Order{
 		Id:             1,
-		MarketId:       1,
-		MarketCode:     "BTC-USD",
+		Symbol:         "BTC-USD",
 		Type:           odr.Limit,
 		Quantity:       10.5,
 		FilledQuantity: 10.5,
@@ -27,8 +26,7 @@ func TestFilledOrder(t *testing.T) {
 func TestShouldPanic(t *testing.T) {
 	order := odr.NewOrderAggregate(&odr.Order{
 		Id:             1,
-		MarketId:       1,
-		MarketCode:     "BTC-USD",
+		Symbol:         "BTC-USD",
 		Type:           odr.Limit,
 		Quantity:       10.5,
 		FilledQuantity: 0,
@@ -44,8 +42,7 @@ func TestShouldPanic(t *testing.T) {
 func TestMarshal(t *testing.T) {
 	order := odr.NewOrderAggregate(&odr.Order{
 		Id:             1,
-		MarketId:       1,
-		MarketCode:     "BTC-USD",
+		Symbol:         "BTC-USD",
 		Type:           odr.Limit,
 		Quantity:       10.5,
 		FilledQuantity: 10.5,
@@ -56,5 +53,5 @@ func TestMarshal(t *testing.T) {
 
 	bz := order.Marshal()
 	str := string(bz)
-	assert.Equal(t, "{\"id\":1,\"market_id\":1,\"market_code\":\"BTC-USD\",\"type\":0,\"amount\":10.5,\"filled_amount\":10.5,\"price\":45000,\"direction\":1,\"status\":0}", str)
+	assert.Equal(t, "{\"id\":1,\"symbol\":\"BTC-USD\",\"type\":0,\"quantity\":10.5,\"filled_quantity\":10.5,\"price\":45000,\"side\":1,\"status\":0,\"timestamp\":0}", str)
 }
