@@ -2,7 +2,7 @@ package db_test
 
 import (
 	"encoding/json"
-	"match_engine/app"
+	"match_engine/domain/market"
 	odr "match_engine/domain/order"
 	"match_engine/infra/db"
 	"match_engine/utils"
@@ -11,10 +11,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var DefaultMarkets = []market.Market{
+	{
+		Symbol: "BTCUSDT",
+	},
+	{
+		Symbol: "ETHUSDT",
+	},
+}
+
 func TestSave(t *testing.T) {
 	kv := db.NewMatchEngineKV()
 
-	market := app.DefaultMarkets[0]
+	market := DefaultMarkets[0]
 
 	order, _ := odr.NewOrder(1, market.Symbol, odr.Limit, 10, 100, odr.Buy)
 	kv.Save(*order)
@@ -29,7 +38,7 @@ func TestSave(t *testing.T) {
 func TestFetchMatchingOrders(t *testing.T) {
 	kv := db.NewMatchEngineKV()
 
-	market := app.DefaultMarkets[0]
+	market := DefaultMarkets[0]
 
 	order, _ := odr.NewOrder(1, market.Symbol, odr.Limit, 100, 10, odr.Buy)
 	kv.Save(*order)
