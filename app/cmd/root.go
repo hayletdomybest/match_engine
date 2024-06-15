@@ -23,11 +23,6 @@ func NewRootCmd() *cobra.Command {
 				Home: home,
 			})
 
-			// appCtx, err := initConfig(path.Join(home, DefaultConfigName))
-			// if err != nil {
-			// 	return err
-			// }
-
 			cmd.SetContext(ctx)
 
 			return nil

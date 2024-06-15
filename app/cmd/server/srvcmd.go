@@ -58,9 +58,11 @@ func runCmd() *cobra.Command {
 			}
 
 			server := NewServer(conf.URL)
-
+			server.inject(func() *common.GlobalContext {
+				return globalCtx
+			})
 			server.RegisterController()
-			server.RegisterKV()
+			server.RegisterRepository()
 
 			fmt.Printf("Run server %s", conf.URL)
 			if err := server.Run(); err != nil {

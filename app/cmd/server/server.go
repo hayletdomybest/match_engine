@@ -48,10 +48,9 @@ func (server *Server) inject(srv interface{}) {
 
 func (server *Server) RegisterController() {
 	server.inject(helloworld.NewHelloWorldController)
-	container := server.container
-	container.Provide(helloworld.NewHelloWorldController)
 }
 
-func (server *Server) RegisterKV() {
+func (server *Server) RegisterRepository() {
 	server.inject(db.NewHelloWorldKv)
+	server.inject(db.NewInMemoryDBContext)
 }

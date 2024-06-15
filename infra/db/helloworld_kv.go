@@ -9,8 +9,14 @@ type HelloWorldKv struct {
 	messages []string
 }
 
+var _ Repository = (*HelloWorldKv)(nil)
+
 func NewHelloWorldKv() *HelloWorldKv {
 	return &HelloWorldKv{}
+}
+
+func (kv *HelloWorldKv) GetName() string {
+	return "HelloWorldKV"
 }
 
 func (kv *HelloWorldKv) Append(msg string) {
@@ -35,11 +41,15 @@ func (kv *HelloWorldKv) LoadSnap(bz []byte) error {
 	return nil
 }
 
-func (kv *HelloWorldKv) CreateSnap() []byte {
+func (kv *HelloWorldKv) CreateSnap() ([]byte, error) {
 	if len(kv.messages) == 0 {
-		return nil
+		return []byte{}, nil
 	}
 
-	bz, _ := json.Marshal(kv.messages)
-	return bz
+	bz, err := json.Marshal(kv.messages)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return bz, nil
 }
