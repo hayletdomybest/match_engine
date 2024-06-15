@@ -1,11 +1,11 @@
-package cmd
+package server
 
 import (
 	"fmt"
 	"sync"
 )
 
-type AppContext struct {
+type ServerContext struct {
 	NodeID uint64
 	URL    string
 	Peers  map[uint64]string
@@ -15,11 +15,11 @@ type AppContext struct {
 	sealedch chan struct{}
 }
 
-func NewContext(nodeID uint64, url string) *AppContext {
+func NewContext(nodeID uint64, url string) *ServerContext {
 	peers := make(map[uint64]string)
 	peers[nodeID] = url
 
-	return &AppContext{
+	return &ServerContext{
 		NodeID: nodeID,
 		URL:    url,
 
@@ -29,7 +29,7 @@ func NewContext(nodeID uint64, url string) *AppContext {
 	}
 }
 
-func (context *AppContext) assertNotSealed() {
+func (context *ServerContext) assertNotSealed() {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 
@@ -38,7 +38,7 @@ func (context *AppContext) assertNotSealed() {
 	}
 }
 
-func (context *AppContext) Sealed() *AppContext {
+func (context *ServerContext) Sealed() *ServerContext {
 	context.assertNotSealed()
 
 	context.mu.Lock()
@@ -48,7 +48,7 @@ func (context *AppContext) Sealed() *AppContext {
 	return context
 }
 
-func (context *AppContext) AppendPeer(nodeID uint64, nodeURL string) *AppContext {
+func (context *ServerContext) AppendPeer(nodeID uint64, nodeURL string) *ServerContext {
 	context.assertNotSealed()
 
 	context.mu.Lock()

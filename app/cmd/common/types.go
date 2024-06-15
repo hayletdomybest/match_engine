@@ -1,3 +1,3 @@
-package cmd
+package common
 
 type ContextKey string

@@ -1,19 +1,19 @@
-package cmd
+package server
 
 import (
 	"errors"
 	"fmt"
 )
 
-// AppConfig represents the configuration for the application
-type AppConfig struct {
+// ServerConfig represents the configuration for the application
+type ServerConfig struct {
 	NodeID uint64            `json:"node_id"`
 	URL    string            `json:"url"`
 	Peers  map[uint64]string `json:"peers"`
 }
 
 // Validate checks if the configuration is valid
-func (config *AppConfig) Validate() error {
+func (config *ServerConfig) Validate() error {
 	if config.NodeID == 0 {
 		return errors.New("node ID is required")
 	}
