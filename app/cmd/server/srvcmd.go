@@ -57,7 +57,15 @@ func runCmd() *cobra.Command {
 				return err
 			}
 
+			server := NewServer(conf.URL)
+
+			server.RegisterController()
+			server.RegisterKV()
+
 			fmt.Printf("Run server %s", conf.URL)
+			if err := server.Run(); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
