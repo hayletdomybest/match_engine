@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"match_engine/app/cmd/common"
+	"match_engine/utils"
 	"os"
 	"path"
 	"path/filepath"
@@ -89,7 +90,7 @@ func initConfig(configPath string, overwrite bool) error {
 	}
 
 	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
+	if err := utils.MkdirAll(configDir); err != nil {
 		return err
 	}
 
