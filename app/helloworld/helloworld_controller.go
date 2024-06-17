@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"io"
 	"match_engine/app/cmd/common"
+	"match_engine/app/models"
+	"match_engine/infra/consensus/raft"
 	"match_engine/infra/db"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,24 +17,25 @@ type HelloWorldBody struct {
 }
 
 type HelloWorldController struct {
-	dbCtx  *db.InMemoryDBContext
-	appCtx *common.GlobalContext
+	dbContext  *db.InMemoryDBContext // for test
+	raftServer *raft.RaftServer
+	appCtx     *common.AppContext
 }
 
 func NewHelloWorldController(
 	r gin.IRoutes,
-	dbCtx *db.InMemoryDBContext,
-	appCtx *common.GlobalContext,
+	context *common.AppContext,
+	raftServer *raft.RaftServer,
+	dbContext *db.InMemoryDBContext,
 ) *HelloWorldController {
 	ctr := &HelloWorldController{
-		dbCtx:  dbCtx,
-		appCtx: appCtx,
+		dbContext:  dbContext,
+		raftServer: raftServer,
+		appCtx:     context,
 	}
-
 	r.POST("/helloworld/message", ctr.appendMessage)
 	r.GET("/helloworld/messages", ctr.getMessages)
-	r.POST("/helloworld/create-snapshot", ctr.testCreateSnapshot)
-	r.POST("/helloworld/load-snapshot", ctr.testLoadSnapshot)
+	r.GET("/helloworld/leader", ctr.getLeader)
 
 	return ctr
 }
@@ -51,52 +52,19 @@ func (ctr *HelloWorldController) appendMessage(c *gin.Context) {
 		return
 	}
 
-	repo := ctr.dbCtx.HelloWorldKV
+	bz, _ = json.Marshal(&models.AppMessage[string]{
+		Action: ActionAppendMessage,
+		Data:   body.Message,
+	})
 
-	repo.Append(body.Message)
-
+	ctr.raftServer.Propose(bz)
 	c.JSON(http.StatusOK, gin.H{"message": "Message appended successfully"})
 }
 
 func (ctr *HelloWorldController) getMessages(c *gin.Context) {
-	repo := ctr.dbCtx.HelloWorldKV
-	c.JSON(http.StatusOK, gin.H{"messages": repo.GetAll()})
+	c.JSON(http.StatusOK, gin.H{"messages": ctr.dbContext.HelloWorldKV.GetAll()})
 }
 
-var testsnapshot_file_name = "snapshot.json"
-
-func (ctr *HelloWorldController) testCreateSnapshot(c *gin.Context) {
-	bz, err := ctr.dbCtx.CreateSnap()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	}
-
-	file := filepath.Join(ctr.appCtx.Home, testsnapshot_file_name)
-	err = os.WriteFile(file, bz, os.ModePerm)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	}
-
-	c.String(http.StatusOK, "ok")
-}
-
-func (ctr *HelloWorldController) testLoadSnapshot(c *gin.Context) {
-	fileName := filepath.Join(ctr.appCtx.Home, testsnapshot_file_name)
-
-	// Read the config file
-	file, err := os.Open(fileName)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	}
-	defer file.Close()
-
-	bz, err := io.ReadAll(file)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err)
-	}
-
-	ctr.dbCtx.LoadSnap(bz)
-	repo := ctr.dbCtx.HelloWorldKV
-
-	c.JSON(http.StatusOK, gin.H{"messages": repo.GetAll()})
+func (ctr *HelloWorldController) getLeader(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"messages": ctr.raftServer.GetLeader()})
 }

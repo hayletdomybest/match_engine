@@ -1,8 +1,10 @@
 package raft
 
 import (
+	"fmt"
 	"sync"
 
+	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
 )
 
@@ -12,7 +14,7 @@ type RaftCluster struct {
 	mutex   sync.RWMutex
 }
 
-// NewCluster create a Cluster frome map
+// NewCluster create a Cluster from map
 func NewCluster(peers map[uint64]string) *RaftCluster {
 	return &RaftCluster{
 		members: peers,
@@ -28,9 +30,26 @@ func (c *RaftCluster) GetURL(id uint64) string {
 
 // AddMember add a new member to Cluster
 func (c *RaftCluster) AddMember(id uint64, url string) {
+	c.AddMembers(struct {
+		id  uint64
+		url string
+	}{
+		id:  id,
+		url: url,
+	})
+}
+
+func (c *RaftCluster) AddMembers(peers ...struct {
+	id  uint64
+	url string
+}) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.members[id] = url
+
+	for _, peer := range peers {
+		c.members[peer.id] = peer.url
+	}
+
 }
 
 // RemoveMember remove a existed member from Cluster
@@ -56,4 +75,28 @@ func (c *RaftCluster) ApplyConfigChange(cc raftpb.ConfChange) {
 	case raftpb.ConfChangeRemoveNode:
 		c.RemoveMember(cc.NodeID)
 	}
+}
+
+func (c *RaftCluster) GetPeers() []raft.Peer {
+	var peers []raft.Peer
+	for id, url := range c.members {
+		peers = append(peers, raft.Peer{
+			ID:      id,
+			Context: []byte(url),
+		})
+	}
+	return peers
+}
+
+func (c *RaftCluster) CheckNodeUrl(id uint64, testUrl string) error {
+	url := c.GetURL(id)
+	if len(url) == 0 {
+		return fmt.Errorf("node %d url is empty", id)
+	}
+
+	if url != testUrl {
+		return fmt.Errorf("node %d url is not same as peer %d url", id, id)
+	}
+
+	return nil
 }

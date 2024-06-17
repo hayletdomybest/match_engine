@@ -6,6 +6,4 @@ type CoordEngine interface {
 
 	GetSnapshot() ([]byte, error)
 	ReloadSnapshot([]byte) error
-
-	OnReady(server Server)
 }

@@ -1,3 +1,3 @@
 package common
 
-type ContextKey string
+type AppKey string

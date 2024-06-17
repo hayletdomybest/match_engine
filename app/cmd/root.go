@@ -19,10 +19,7 @@ func NewRootCmd() *cobra.Command {
 			cmd.SetOut(cmd.OutOrStdout())
 			cmd.SetErr(cmd.ErrOrStderr())
 
-			ctx := context.WithValue(context.Background(), common.GlobalContextKey, &common.GlobalContext{
-				Home: home,
-			})
-
+			ctx := context.WithValue(context.Background(), common.HomeContextKey, home)
 			cmd.SetContext(ctx)
 
 			return nil

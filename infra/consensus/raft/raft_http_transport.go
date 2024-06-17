@@ -59,7 +59,7 @@ func (srv *RaftServer) httpTransportStart() error {
 
 	go func() {
 		defer srv.httpServer.Close()
-		srv.logger.Info("node%d is listening on addr %s\n", srv.nodeID, ln.Addr().String())
+		srv.logger.Info("node%d is listening on addr %s", srv.nodeID, ln.Addr().String())
 		err = srv.httpServer.Serve(ln)
 		if err != nil && err != http.ErrServerClosed {
 			srv.errorC <- errors.Errorf("Http server close (%v)", err)

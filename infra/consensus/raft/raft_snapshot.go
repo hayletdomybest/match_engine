@@ -53,9 +53,14 @@ func (snapshot *RaftSnapshotter) Tick() {
 	}
 
 	go func() {
+		defer func() {
+			snapshot.curTick = 0
+		}()
+		defer snapshot.mu.Unlock()
+		if snapshot.trigger == nil {
+			return
+		}
 		snapshot.trigger(snapshot.snapshotter)
-		snapshot.mu.Unlock()
-		snapshot.curTick = 0
 	}()
 }
 

@@ -18,6 +18,7 @@ type RaftServerConf struct {
 	URL      string
 	Peers    map[uint64]string
 	HomePath string
+	Join     bool
 
 	Ticker        *time.Ticker
 	ElectionTick  int

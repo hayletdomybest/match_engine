@@ -53,7 +53,6 @@ func (srv *RaftServer) serveRaftHandlerChannels() {
 				srv.snapshotter.Tick()
 			case rd := <-srv.raft.Ready():
 				srv.mu.Lock()
-				defer srv.mu.Unlock()
 				if !raft.IsEmptySnap(rd.Snapshot) {
 					fmt.Printf("node %d has snapshot at index %d term %d\n", srv.nodeID, rd.Snapshot.Metadata.Index, rd.Snapshot.Metadata.Term)
 				}
@@ -71,6 +70,7 @@ func (srv *RaftServer) serveRaftHandlerChannels() {
 				srv.transport.Send(srv.processMessages(rd.Messages))
 				srv.publishEntries(rd.CommittedEntries)
 				srv.raft.Advance()
+				srv.mu.Unlock()
 			}
 		}
 	}()
@@ -85,7 +85,7 @@ func (srv *RaftServer) publishEntries(ents []raftpb.Entry) {
 
 	for i, ent := range ents {
 		if ent.Index <= srv.appliedIndex {
-			fmt.Printf("node %d skip entry index %d because node has applied index %d\n", srv.nodeID, ent.Index, srv.appliedIndex)
+			srv.logger.Info("node %d skip entry index %d because node has applied index %d", srv.nodeID, ent.Index, srv.appliedIndex)
 			continue
 		}
 
@@ -103,9 +103,9 @@ func (srv *RaftServer) publishEntries(ents []raftpb.Entry) {
 			switch cc.Type {
 			case raftpb.ConfChangeAddNode:
 				srv.logger.Info("node %d applied ConfChangeAddNode", srv.nodeID)
-				if len(cc.Context) > 0 {
+				if len(cc.Context) > 0 && cc.NodeID != srv.nodeID {
 					srv.cluster.AddMember(cc.NodeID, string(cc.Context))
-					srv.logger.Info("node%d add node%d addr %s\n", srv.nodeID, cc.NodeID, string(cc.Context))
+					srv.logger.Info("node%d add node%d addr %s", srv.nodeID, cc.NodeID, string(cc.Context))
 					srv.transport.AddPeer(types.ID(cc.NodeID), []string{string(cc.Context)})
 				}
 			case raftpb.ConfChangeRemoveNode:

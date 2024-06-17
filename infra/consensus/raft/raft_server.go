@@ -28,6 +28,7 @@ type RaftServer struct {
 
 	nodeID        uint64
 	url           string
+	join          bool
 	heartbeatTick int
 	electionTick  int
 	confState     raftpb.ConfState
@@ -55,6 +56,8 @@ type RaftServer struct {
 	engine consensus.CoordEngine
 }
 
+var _ consensus.Server = (*RaftServer)(nil)
+
 func NewRaftServer(conf *RaftServerConf) *RaftServer {
 	storage := raft.NewMemoryStorage()
 	id := conf.NodeID
@@ -65,6 +68,7 @@ func NewRaftServer(conf *RaftServerConf) *RaftServer {
 	server := &RaftServer{
 		nodeID: id,
 		url:    conf.URL,
+		join:   conf.Join,
 		ctx:    conf.Context,
 		logger: conf.Logger,
 		ticker: conf.Ticker,
@@ -107,10 +111,22 @@ func (srv *RaftServer) Start() error {
 		MaxSizePerMsg:   math.MaxUint16,
 		MaxInflightMsgs: 256,
 	}
-	srv.cluster.AddMember(srv.nodeID, srv.url)
-	srv.raft = raft.RestartNode(raftConf)
 
-	srv.replayWAL()
+	if err := srv.cluster.CheckNodeUrl(srv.nodeID, srv.url); err != nil {
+		return err
+	}
+
+	isRestart, err := srv.replayWAL()
+	if err != nil {
+		return err
+	}
+
+	if isRestart || srv.join {
+		srv.raft = raft.RestartNode(raftConf)
+	} else {
+		srv.raft = raft.StartNode(raftConf, srv.cluster.GetPeers())
+	}
+
 	snap, err := srv.storage.Snapshot()
 	if err != nil {
 		return err
@@ -145,19 +161,21 @@ func (srv *RaftServer) Stop() {
 	close(srv.doneC)
 }
 
-func (srv *RaftServer) Propose(data []byte) {
+func (srv *RaftServer) Propose(data []byte) error {
 	srv.proposeC <- data
+	return nil
 }
 
-func (srv *RaftServer) AddNodes(peers map[uint64]string) {
-	for nodeID, url := range peers {
+func (srv *RaftServer) AddNodes(nodes ...consensus.ServerNode) error {
+	for _, node := range nodes {
 
 		srv.configChangeC <- raftpb.ConfChange{
-			Context: []byte(url),
+			Context: []byte(node.URL),
 			Type:    raftpb.ConfChangeAddNode,
-			NodeID:  nodeID,
+			NodeID:  node.NodeID,
 		}
 	}
+	return nil
 }
 
 func (srv *RaftServer) applySoftSnap(snapshotToSave raftpb.Snapshot) {
@@ -204,6 +222,9 @@ func (srv *RaftServer) triggerSnap() {
 		srv.errorC <- fmt.Errorf("trigger snapshot error:%s", err.Error())
 		return
 	}
+	if len(data) == 0 {
+		return
+	}
 
 	snap, err := srv.storage.CreateSnapshot(srv.appliedIndex, &srv.confState, data)
 	if err != nil {
@@ -227,6 +248,22 @@ func (srv *RaftServer) triggerSnap() {
 		}
 	}
 	srv.snapshotIndex = srv.appliedIndex
+}
+
+func (rc *RaftServer) GetLeader() uint64 {
+	return rc.raft.Status().Lead
+}
+
+func (rc *RaftServer) GetId() uint64 {
+	return rc.nodeID
+}
+
+func (rc *RaftServer) IsLeader() bool {
+	return rc.GetLeader() == rc.nodeID
+}
+
+func (rc *RaftServer) CatchError() <-chan error {
+	return rc.errorC
 }
 
 func (rc *RaftServer) Done() <-chan struct{} {

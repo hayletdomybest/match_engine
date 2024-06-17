@@ -7,5 +7,5 @@ type ServerNode struct {
 
 type Server interface {
 	Propose(data []byte) error
-	AddNodes(nodes []ServerNode) error
+	AddNodes(nodes ...ServerNode) error
 }
