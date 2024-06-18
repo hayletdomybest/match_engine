@@ -1,5 +1,10 @@
 package engine
 
+import (
+	odr "match_engine/domain/order"
+)
+
 type MatchResult struct {
-	//TODO
+	Order   *odr.Order
+	Matched []odr.Order
 }
