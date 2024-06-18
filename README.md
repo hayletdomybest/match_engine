@@ -85,3 +85,21 @@ To run a cluster with two nodes:
 ./out/mind server run --home ./private/node1
 ./out/mind server run --home ./private/node2
 ```
+
+## Testing
+
+### Append Message
+```sh
+curl -X POST http://127.0.0.1:3000/api/v1/helloworld/message -H "Content-Type: application/json" -d '{"message":"version3"}'
+```
+
+### Get Message
+```sh
+curl -X GET http://127.0.0.1:3000/api/v1/helloworld/messages
+```
+
+### Get Leader
+```sh
+curl -X GET http://127.0.0.1:3000/api/v1/helloworld/leader
+```
+
