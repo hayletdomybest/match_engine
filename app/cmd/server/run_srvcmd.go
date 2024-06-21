@@ -33,10 +33,17 @@ func runCmd() *cobra.Command {
 				AppConfig: *conf,
 				Home:      home,
 			}
-			server := NewServer(ctx)
+			container := initContainer(ctx)
+			if err := sealed(container); err != nil {
+				return err
+			}
 
-			fmt.Printf("Run server %s", ctx.URL)
-			if err := server.Run(); err != nil {
+			srv, err := getFromContainer(container, &Server{})
+			if err != nil {
+				return err
+			}
+
+			if err := srv.Run(); err != nil {
 				return err
 			}
 			return nil

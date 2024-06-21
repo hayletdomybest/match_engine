@@ -23,3 +23,15 @@ func Select[TInput any, TOutput any](slice []TInput, fn func(item TInput) TOutpu
 
 	return result
 }
+
+func Except[TInput any](slice []TInput, fn func(item TInput) bool) []TInput {
+	var result []TInput
+	for _, item := range slice {
+		if fn(item) {
+			continue
+		}
+		result = append(result, item)
+	}
+
+	return result
+}

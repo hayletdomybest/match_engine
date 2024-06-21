@@ -20,10 +20,12 @@ To initialize a single node:
 To initialize a cluster with two nodes:
 ```sh
 ./out/mind server init --home ./private/node1
+```
+```sh
 ./out/mind server init --home ./private/node2
 ```
 
-## Configuration
+## Configuration matching server
 
 ### Single Mode
 **./private/node1/app_config.json**
@@ -31,12 +33,13 @@ To initialize a cluster with two nodes:
 {
   "api_port": 3000,
   "node_id": 1,
-  "url": "http://localhost:7701",
+  "node_url": "http://127.0.0.1:8081",
   "peers": {
-    "1": "http://localhost:7701"
+    "1": "http://127.0.0.1:8081",   
   },
   "join": false,
-  "data_dir": ""
+  "data_dir": "",
+  "etcd_endpoints": []
 }
 ```
 ---
@@ -46,13 +49,14 @@ To initialize a cluster with two nodes:
 {
   "api_port": 3000,
   "node_id": 1,
-  "url": "http://localhost:7701",
+  "node_url": "http://127.0.0.1:8081",
   "peers": {
-    "1": "http://localhost:7701",
-    "2": "http://localhost:7702"
+    "1": "http://127.0.0.1:8081",
+    "2": "http://127.0.0.1:8082"    
   },
   "join": false,
-  "data_dir": ""
+  "data_dir": "",
+  "etcd_endpoints": []
 }
 ```
 **./private/node2/app_config.json**
@@ -60,17 +64,18 @@ To initialize a cluster with two nodes:
 {
   "api_port": 3001,
   "node_id": 2,
-  "url": "http://localhost:7702",
+  "node_url": "http://127.0.0.1:8082",
   "peers": {
-    "1": "http://localhost:7701",
-    "2": "http://localhost:7702"
+    "1": "http://127.0.0.1:8081",
+    "2": "http://127.0.0.1:8082"    
   },
   "join": false,
-  "data_dir": ""
+  "data_dir": "",
+  "etcd_endpoints": []
 }
 ```
 
-## Run
+## Run matching server
 
 ### Single Mode
 To run a single node:
@@ -83,7 +88,19 @@ To run a single node:
 To run a cluster with two nodes:
 ```sh
 ./out/mind server run --home ./private/node1
+```
+```sh
 ./out/mind server run --home ./private/node2
+```
+
+### Using etcd for service discovery
+```sh
+docker-compose -f ./deploy/etcd-docker-compose.yml up -d
+```
+
+note: should choose proper "platform"
+```sh
+platform: linux/arm64
 ```
 
 ## Testing
@@ -100,6 +117,5 @@ curl -X GET http://127.0.0.1:3000/api/v1/helloworld/messages
 
 ### Get Leader
 ```sh
-curl -X GET http://127.0.0.1:3000/api/v1/helloworld/leader
+curl -X GET http://127.0.0.1:3000/api/v1/explorer/leader
 ```
-

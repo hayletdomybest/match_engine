@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/coreos/etcd/etcdserver/stats"
 	"github.com/coreos/etcd/pkg/types"
@@ -18,18 +19,19 @@ import (
 
 func (srv *RaftServer) httpTransportStart() error {
 	srv.transport = &rafthttp.Transport{
+		DialTimeout: 5 * time.Second,
 		ID:          types.ID(srv.nodeID),
 		ClusterID:   1,
 		Raft:        srv,
 		ServerStats: stats.NewServerStats("", ""),
 		LeaderStats: stats.NewLeaderStats(strconv.Itoa(int(srv.nodeID))),
-		ErrorC:      make(chan error),
+		ErrorC:      srv.errorC,
 	}
 	if err := srv.transport.Start(); err != nil {
 		return errors.Errorf("Failed transport start (%v)", err)
 	}
 
-	u, err := url.Parse(srv.cluster.GetURL(srv.nodeID))
+	u, err := url.Parse(srv.url)
 	if err != nil {
 		return errors.Errorf("Failed parsing URL (%v)", err)
 	}

@@ -13,7 +13,5 @@ func NewServerCmd() *cobra.Command {
 		initCmd(),
 		runCmd(),
 	)
-
-	cmd.AddCommand()
 	return cmd
 }

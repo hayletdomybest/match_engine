@@ -2,6 +2,7 @@ package raft
 
 import (
 	"fmt"
+	"match_engine/infra/consensus"
 	"sync"
 
 	"github.com/coreos/etcd/raft"
@@ -30,24 +31,18 @@ func (c *RaftCluster) GetURL(id uint64) string {
 
 // AddMember add a new member to Cluster
 func (c *RaftCluster) AddMember(id uint64, url string) {
-	c.AddMembers(struct {
-		id  uint64
-		url string
-	}{
-		id:  id,
-		url: url,
+	c.AddMembers(consensus.ServerNode{
+		NodeID: id,
+		URL:    url,
 	})
 }
 
-func (c *RaftCluster) AddMembers(peers ...struct {
-	id  uint64
-	url string
-}) {
+func (c *RaftCluster) AddMembers(peers ...consensus.ServerNode) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for _, peer := range peers {
-		c.members[peer.id] = peer.url
+		c.members[peer.NodeID] = peer.URL
 	}
 
 }
@@ -57,6 +52,12 @@ func (c *RaftCluster) RemoveMember(id uint64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	delete(c.members, id)
+}
+
+func (c *RaftCluster) RemoveAllMember() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.members = make(map[uint64]string)
 }
 
 // HasMember check if the member in the Cluster

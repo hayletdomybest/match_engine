@@ -2,7 +2,6 @@ package raft
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/raft"
@@ -54,7 +53,7 @@ func (srv *RaftServer) serveRaftHandlerChannels() {
 			case rd := <-srv.raft.Ready():
 				srv.mu.Lock()
 				if !raft.IsEmptySnap(rd.Snapshot) {
-					fmt.Printf("node %d has snapshot at index %d term %d\n", srv.nodeID, rd.Snapshot.Metadata.Index, rd.Snapshot.Metadata.Term)
+					srv.logger.Info("node %d has snapshot at index %d term %d\n", srv.nodeID, rd.Snapshot.Metadata.Index, rd.Snapshot.Metadata.Term)
 				}
 
 				if !raft.IsEmptySnap(rd.Snapshot) {

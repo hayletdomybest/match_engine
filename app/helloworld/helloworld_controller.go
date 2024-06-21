@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"match_engine/app/cmd/common"
-	"match_engine/app/models"
+	"match_engine/app/cmd/common/model"
 	"match_engine/infra/consensus/raft"
 	"match_engine/infra/db"
 	"net/http"
@@ -35,7 +35,6 @@ func NewHelloWorldController(
 	}
 	r.POST("/helloworld/message", ctr.appendMessage)
 	r.GET("/helloworld/messages", ctr.getMessages)
-	r.GET("/helloworld/leader", ctr.getLeader)
 
 	return ctr
 }
@@ -52,7 +51,7 @@ func (ctr *HelloWorldController) appendMessage(c *gin.Context) {
 		return
 	}
 
-	bz, _ = json.Marshal(&models.AppMessage[string]{
+	bz, _ = json.Marshal(&model.AppMessage[string]{
 		Action: ActionAppendMessage,
 		Data:   body.Message,
 	})
@@ -63,8 +62,4 @@ func (ctr *HelloWorldController) appendMessage(c *gin.Context) {
 
 func (ctr *HelloWorldController) getMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"messages": ctr.dbContext.HelloWorldKV.GetAll()})
-}
-
-func (ctr *HelloWorldController) getLeader(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"messages": ctr.raftServer.GetLeader()})
 }

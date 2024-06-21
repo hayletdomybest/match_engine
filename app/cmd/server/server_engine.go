@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"match_engine/app/cmd/common/model"
 	"match_engine/app/helloworld"
-	"match_engine/app/models"
 	"match_engine/infra/consensus"
 	"match_engine/infra/db"
 	"match_engine/utils"
@@ -71,7 +71,7 @@ func wrap(fn interface{}) func(...any) error {
 }
 
 func (engine *ServerEngine) Handle(data []byte) error {
-	var msg models.AppMessage[any]
+	var msg model.AppMessage[any]
 	if err := json.Unmarshal(data, &msg); err != nil {
 		return err
 	}
