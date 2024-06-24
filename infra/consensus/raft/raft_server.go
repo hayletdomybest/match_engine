@@ -21,6 +21,7 @@ import (
 	"github.com/coreos/etcd/snap"
 	"github.com/coreos/etcd/wal"
 	"github.com/coreos/etcd/wal/walpb"
+	"github.com/google/uuid"
 )
 
 type RaftServer struct {
@@ -53,6 +54,7 @@ type RaftServer struct {
 
 	configChangeC chan raftpb.ConfChange
 	proposeC      chan []byte
+	readStateC    chan raft.ReadState
 	stopC         chan struct{}
 	doneC         chan struct{}
 	errorC        chan error
@@ -91,6 +93,7 @@ func NewRaftServer(conf *RaftServerConf) *RaftServer {
 		tls:           conf.TLS,
 		configChangeC: make(chan raftpb.ConfChange),
 		proposeC:      make(chan []byte),
+		readStateC:    make(chan raft.ReadState),
 		stopC:         make(chan struct{}),
 		doneC:         make(chan struct{}),
 		errorC:        make(chan error),
@@ -140,6 +143,8 @@ func (srv *RaftServer) Start() error {
 	srv.snapshotIndex = snap.Metadata.Index
 	srv.appliedIndex = snap.Metadata.Index
 
+	srv.ResetNode()
+
 	if err := srv.httpTransportStart(); err != nil {
 		return err
 	}
@@ -181,6 +186,7 @@ func (srv *RaftServer) Start() error {
 
 	srv.serveProposeChannels()
 	srv.serveRaftHandlerChannels()
+	srv.serveRaftRead()
 
 	return nil
 }
@@ -209,6 +215,16 @@ func (srv *RaftServer) IsReady() bool {
 func (srv *RaftServer) Propose(data []byte) error {
 	srv.proposeC <- data
 	return nil
+}
+
+func (srv *RaftServer) ReadIndex() (<-chan uint64, error) {
+	rtcx := []byte(uuid.New().String())
+	res := srv.engine.CreateSyncRead(rtcx)
+	if err := srv.raft.ReadIndex(srv.ctx, rtcx); err != nil {
+		srv.engine.CancelSyncRead(rtcx)
+		return nil, err
+	}
+	return res, nil
 }
 
 func (srv *RaftServer) AddNodes(nodes ...consensus.ServerNode) error {
@@ -360,6 +376,11 @@ func (rc *RaftServer) SyncMembers(nodes ...consensus.ServerNode) {
 	var removeNodeIDs []uint64
 	for nodeID := range rc.cluster.members {
 		if _, existed := m[nodeID]; !existed {
+
+			if nodeID == rc.nodeID {
+				rc.errorC <- fmt.Errorf("node%d disconnect with server discovered", nodeID)
+				rc.Stop()
+			}
 			rc.cluster.RemoveMember(nodeID)
 			rc.transport.RemovePeer(types.ID(nodeID))
 			id, _ := rc.engine.GenerateID()
@@ -381,4 +402,13 @@ func (rc *RaftServer) CatchError() <-chan error {
 
 func (rc *RaftServer) Done() <-chan struct{} {
 	return rc.doneC
+}
+
+func (rc *RaftServer) ResetNode() {
+	for _, nodeID := range rc.confState.Nodes {
+		rc.raft.ApplyConfChange(raftpb.ConfChange{
+			Type:   raftpb.ConfChangeRemoveNode,
+			NodeID: nodeID,
+		})
+	}
 }

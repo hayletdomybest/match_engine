@@ -2,6 +2,7 @@ package raft
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/raft"
@@ -68,10 +69,34 @@ func (srv *RaftServer) serveRaftHandlerChannels() {
 				srv.storage.Append(rd.Entries)
 				srv.transport.Send(srv.processMessages(rd.Messages))
 				srv.publishEntries(rd.CommittedEntries)
+				if len(rd.ReadStates) != 0 {
+					for _, rs := range rd.ReadStates {
+						srv.readStateC <- rs
+					}
+				}
 				srv.raft.Advance()
 				srv.mu.Unlock()
 			}
 		}
+	}()
+}
+
+func (srv *RaftServer) serveRaftRead() {
+	go func() {
+		for {
+			select {
+			case <-srv.doneC:
+				return
+			case rs, ok := <-srv.readStateC:
+				if !ok {
+					continue
+				}
+				if err := srv.engine.ReadHandle(rs.Index, rs.RequestCtx); err != nil {
+					srv.errorC <- fmt.Errorf("read index error:%v", err)
+				}
+			}
+		}
+
 	}()
 }
 

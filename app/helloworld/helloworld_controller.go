@@ -8,6 +8,7 @@ import (
 	"match_engine/infra/consensus/raft"
 	"match_engine/infra/db"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,6 +36,7 @@ func NewHelloWorldController(
 	}
 	r.POST("/helloworld/message", ctr.appendMessage)
 	r.GET("/helloworld/messages", ctr.getMessages)
+	r.GET("/helloworld/sync-messages", ctr.syncGetMessages)
 
 	return ctr
 }
@@ -62,4 +64,19 @@ func (ctr *HelloWorldController) appendMessage(c *gin.Context) {
 
 func (ctr *HelloWorldController) getMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"messages": ctr.dbContext.HelloWorldKV.GetAll()})
+}
+
+func (ctr *HelloWorldController) syncGetMessages(c *gin.Context) {
+	ch, err := ctr.raftServer.ReadIndex()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"messages": "server read index error"})
+	}
+
+	select {
+	case <-ch:
+		c.JSON(http.StatusOK, gin.H{"messages": ctr.dbContext.HelloWorldKV.GetAll()})
+	case <-time.After(2 * time.Second):
+		c.JSON(http.StatusInternalServerError, gin.H{"messages": "server read index timeout"})
+	}
+
 }
