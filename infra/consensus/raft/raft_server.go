@@ -155,7 +155,7 @@ func (srv *RaftServer) Start() error {
 		}
 
 		srv.cluster.RemoveAllMember()
-		srv.SyncMembersTest(nodes...)
+		srv.SyncMembers(nodes...)
 		if err := srv.cluster.CheckNodeUrl(srv.nodeID, srv.url); err != nil {
 			return err
 		}
@@ -173,7 +173,7 @@ func (srv *RaftServer) Start() error {
 						srv.errorC <- err
 						continue
 					}
-					srv.SyncMembersTest(nodes...)
+					srv.SyncMembers(nodes...)
 				}
 			}
 		}()
@@ -334,30 +334,7 @@ func (rc *RaftServer) IsLeader() bool {
 	return rc.GetLeader() == rc.nodeID
 }
 
-func (rc *RaftServer) SyncMembers(nodes map[uint64]consensus.ServerNode) {
-	var addNode []consensus.ServerNode
-
-	for _, node := range nodes {
-		if rc.cluster.HasMember(node.NodeID) {
-			continue
-		}
-		addNode = append(addNode, consensus.ServerNode{
-			NodeID: node.NodeID,
-			URL:    node.URL,
-		})
-	}
-	var removeNodeIDs []uint64
-	for nodeID := range rc.cluster.members {
-		if _, existed := nodes[nodeID]; !existed {
-			removeNodeIDs = append(removeNodeIDs, nodeID)
-		}
-	}
-
-	rc.AddNodes(addNode...)
-	rc.RemoveNodes(removeNodeIDs...)
-}
-
-func (rc *RaftServer) SyncMembersTest(nodes ...consensus.ServerNode) {
+func (rc *RaftServer) SyncMembers(nodes ...consensus.ServerNode) {
 	var m = utils.SliceToMap(nodes, func(n consensus.ServerNode) uint64 { return n.NodeID })
 
 	var addNode []consensus.ServerNode
