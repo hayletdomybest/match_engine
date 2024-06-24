@@ -25,38 +25,28 @@ func NewMatchEngin(
 	}
 }
 
-func (me *MatchEngine) Match(order *odr.Order) MatchResult {
-	//TODO
-	var matched []odr.Order
-	var result MatchResult
-	for !order.IsDone() {
+func (me *MatchEngine) Match(order *odr.Order) *MatchResult {
+	result := &MatchResult{
+		Order: order,
+	}
+	aggregate := odr.NewOrderAggregate(order)
+	for !aggregate.IsDone() {
 		matchedOrder, _ := me.orderRepo.FetchMatchingOrders(*order, 1)
 
 		if len(matchedOrder) > 0 {
-			matched = append(matched, matchedOrder...)
+			break
 		}
 
-		aggregate := odr.NewOrderAggregate(order)
-		aggregate.Match(utils.Select(matchedOrder, func(o odr.Order) *odr.Order { return &o }))
-
-		for _, mo := range matchedOrder {
-			order.FilledQuantity += mo.Quantity
-		}
-
-		if order.FilledQuantity >= order.Quantity {
-			order.Status = odr.FullFiled
-		}
+		matched := aggregate.Match(&matchedOrder[0])
+		result.Matched = append(result.Matched, matched...)
 	}
 
-	me.orderRepo.Save(append(matched, *order)...)
+	me.orderRepo.Save(
+		utils.Select(append(result.Matched, order), func(o *odr.Order) odr.Order { return *o })...,
+	)
 
 	//TODO
 	//me.eventDispatcher.Dispatch()
-
-	result = MatchResult{
-		Order:   order,
-		Matched: matched,
-	}
 
 	return result
 }

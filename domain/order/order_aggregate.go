@@ -2,7 +2,6 @@ package order
 
 import (
 	"encoding/json"
-	td "match_engine/domain/trade"
 )
 
 type odrOrderAggregate struct {
@@ -44,10 +43,45 @@ func (aggregate *odrOrderAggregate) CanMatch(matchedOrder *Order) bool {
 	}
 }
 
-func (aggregate *odrOrderAggregate) Match(matchedOrders []*Order) []td.Trade {
-	//TODO
+func (aggregate *odrOrderAggregate) Match(matchedOrders ...*Order) []*Order {
+	var res []*Order
 
-	return []td.Trade{}
+	for _, matchedOrder := range matchedOrders {
+		if aggregate.IsDone() {
+			break
+		}
+
+		if aggregate.Fill(matchedOrder) {
+			res = append(res, matchedOrder)
+			continue
+		}
+	}
+
+	return res
+}
+
+func (aggregate *odrOrderAggregate) Fill(matchedOrder *Order) bool {
+	if !aggregate.CanMatch(matchedOrder) {
+		return false
+	}
+
+	var filledAmount float64
+	if aggregate.UnFilled() >= NewOrderAggregate(matchedOrder).UnFilled() {
+		filledAmount = NewOrderAggregate(matchedOrder).UnFilled()
+	} else {
+		filledAmount = aggregate.UnFilled()
+	}
+	aggregate.FilledQuantity += filledAmount
+	NewOrderAggregate(matchedOrder).FilledQuantity += filledAmount
+	return true
+}
+
+func (aggregate *odrOrderAggregate) UnFilled() float64 {
+	if aggregate.IsDone() {
+		return 0
+	}
+
+	return aggregate.Quantity - aggregate.FilledQuantity
 }
 
 func (aggregate *odrOrderAggregate) done(canceled bool) {
