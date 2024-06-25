@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -10,14 +11,17 @@ import (
 
 	"match_engine/infra/consensus"
 	"match_engine/infra/log"
+	"match_engine/utils"
 	"path/filepath"
 
+	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/coreos/etcd/rafthttp"
 	"github.com/coreos/etcd/snap"
 	"github.com/coreos/etcd/wal"
 	"github.com/coreos/etcd/wal/walpb"
+	"github.com/google/uuid"
 )
 
 type RaftServer struct {
@@ -43,12 +47,14 @@ type RaftServer struct {
 	wal         *wal.WAL
 
 	cluster    *RaftCluster
+	explorer   RaftExplorer
 	transport  *rafthttp.Transport
 	httpServer *http.Server
 	tls        *HttpTransportTLS
 
 	configChangeC chan raftpb.ConfChange
 	proposeC      chan []byte
+	readStateC    chan raft.ReadState
 	stopC         chan struct{}
 	doneC         chan struct{}
 	errorC        chan error
@@ -87,11 +93,13 @@ func NewRaftServer(conf *RaftServerConf) *RaftServer {
 		tls:           conf.TLS,
 		configChangeC: make(chan raftpb.ConfChange),
 		proposeC:      make(chan []byte),
+		readStateC:    make(chan raft.ReadState),
 		stopC:         make(chan struct{}),
 		doneC:         make(chan struct{}),
 		errorC:        make(chan error),
 
-		engine: conf.Engine,
+		engine:   conf.Engine,
+		explorer: conf.Explorer,
 	}
 	server.snapshotter.
 		SetTrigger(func(_ *snap.Snapshotter) {
@@ -112,13 +120,13 @@ func (srv *RaftServer) Start() error {
 		MaxInflightMsgs: 256,
 	}
 
-	if err := srv.cluster.CheckNodeUrl(srv.nodeID, srv.url); err != nil {
-		return err
-	}
-
 	isRestart, err := srv.replayWAL()
 	if err != nil {
 		return err
+	}
+
+	if srv.explorer != nil {
+		srv.join = true
 	}
 
 	if isRestart || srv.join {
@@ -135,12 +143,50 @@ func (srv *RaftServer) Start() error {
 	srv.snapshotIndex = snap.Metadata.Index
 	srv.appliedIndex = snap.Metadata.Index
 
+	srv.ResetNode()
+
 	if err := srv.httpTransportStart(); err != nil {
 		return err
 	}
 
+	if srv.explorer != nil {
+		err := srv.explorer.RegisterNode(srv.nodeID, srv.url)
+		if err != nil {
+			return err
+		}
+		nodes, err := srv.explorer.GetNodes()
+		if err != nil {
+			return err
+		}
+
+		srv.cluster.RemoveAllMember()
+		srv.SyncMembers(nodes...)
+		if err := srv.cluster.CheckNodeUrl(srv.nodeID, srv.url); err != nil {
+			return err
+		}
+
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-srv.doneC:
+					return
+				case <-ticker.C:
+					nodes, err := srv.explorer.GetNodes()
+					if err != nil {
+						srv.errorC <- err
+						continue
+					}
+					srv.SyncMembers(nodes...)
+				}
+			}
+		}()
+	}
+
 	srv.serveProposeChannels()
 	srv.serveRaftHandlerChannels()
+	srv.serveRaftRead()
 
 	return nil
 }
@@ -161,19 +207,61 @@ func (srv *RaftServer) Stop() {
 	close(srv.doneC)
 }
 
+func (srv *RaftServer) IsReady() bool {
+	// TODO
+	return true
+}
+
 func (srv *RaftServer) Propose(data []byte) error {
 	srv.proposeC <- data
 	return nil
 }
 
+func (srv *RaftServer) ReadIndex() (<-chan uint64, error) {
+	rtcx := []byte(uuid.New().String())
+	res := srv.engine.CreateSyncRead(rtcx)
+	if err := srv.raft.ReadIndex(srv.ctx, rtcx); err != nil {
+		srv.engine.CancelSyncRead(rtcx)
+		return nil, err
+	}
+	return res, nil
+}
+
 func (srv *RaftServer) AddNodes(nodes ...consensus.ServerNode) error {
 	for _, node := range nodes {
+		url := node.URL
+		id := node.NodeID
+		go func() {
+			select {
+			case <-time.After(10 * time.Second):
+				srv.errorC <- errors.New("add node timeout")
+			case srv.configChangeC <- raftpb.ConfChange{
+				Context: []byte(url),
+				Type:    raftpb.ConfChangeAddNode,
+				NodeID:  id,
+			}:
+			}
+		}()
+	}
+	return nil
+}
 
-		srv.configChangeC <- raftpb.ConfChange{
-			Context: []byte(node.URL),
-			Type:    raftpb.ConfChangeAddNode,
-			NodeID:  node.NodeID,
+func (srv *RaftServer) RemoveNodes(nodeIDs ...uint64) error {
+	for _, nodeID := range nodeIDs {
+		if !srv.cluster.HasMember(nodeID) {
+			continue
 		}
+		go func(id uint64) {
+			select {
+			case <-time.After(10 * time.Second):
+				srv.errorC <- errors.New("remove node timeout")
+			case srv.configChangeC <- raftpb.ConfChange{
+				Type:   raftpb.ConfChangeRemoveNode,
+				NodeID: id,
+			}:
+			}
+		}(nodeID)
+
 	}
 	return nil
 }
@@ -262,10 +350,65 @@ func (rc *RaftServer) IsLeader() bool {
 	return rc.GetLeader() == rc.nodeID
 }
 
+func (rc *RaftServer) SyncMembers(nodes ...consensus.ServerNode) {
+	var m = utils.SliceToMap(nodes, func(n consensus.ServerNode) uint64 { return n.NodeID })
+
+	var addNode []consensus.ServerNode
+
+	for _, node := range nodes {
+		if rc.cluster.HasMember(node.NodeID) {
+			continue
+		}
+		rc.cluster.AddMember(node.NodeID, node.URL)
+		rc.transport.AddPeer(types.ID(node.NodeID), []string{node.URL})
+		id, _ := rc.engine.GenerateID()
+		rc.raft.ApplyConfChange(raftpb.ConfChange{
+			ID:      id,
+			Type:    raftpb.ConfChangeAddNode,
+			NodeID:  node.NodeID,
+			Context: []byte(node.URL),
+		})
+		addNode = append(addNode, consensus.ServerNode{
+			NodeID: node.NodeID,
+			URL:    node.URL,
+		})
+	}
+	var removeNodeIDs []uint64
+	for nodeID := range rc.cluster.members {
+		if _, existed := m[nodeID]; !existed {
+
+			if nodeID == rc.nodeID {
+				rc.errorC <- fmt.Errorf("node%d disconnect with server discovered", nodeID)
+				rc.Stop()
+			}
+			rc.cluster.RemoveMember(nodeID)
+			rc.transport.RemovePeer(types.ID(nodeID))
+			id, _ := rc.engine.GenerateID()
+			rc.raft.ApplyConfChange(raftpb.ConfChange{
+				ID:     id,
+				Type:   raftpb.ConfChangeRemoveNode,
+				NodeID: nodeID,
+			})
+			removeNodeIDs = append(removeNodeIDs, nodeID)
+		}
+	}
+	rc.AddNodes(addNode...)
+	rc.RemoveNodes(removeNodeIDs...)
+}
+
 func (rc *RaftServer) CatchError() <-chan error {
 	return rc.errorC
 }
 
 func (rc *RaftServer) Done() <-chan struct{} {
 	return rc.doneC
+}
+
+func (rc *RaftServer) ResetNode() {
+	for _, nodeID := range rc.confState.Nodes {
+		rc.raft.ApplyConfChange(raftpb.ConfChange{
+			Type:   raftpb.ConfChangeRemoveNode,
+			NodeID: nodeID,
+		})
+	}
 }

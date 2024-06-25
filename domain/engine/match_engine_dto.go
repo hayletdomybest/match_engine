@@ -6,5 +6,5 @@ import (
 
 type MatchResult struct {
 	Order   *odr.Order
-	Matched []odr.Order
+	Matched []*odr.Order
 }

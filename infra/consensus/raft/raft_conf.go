@@ -28,6 +28,7 @@ type RaftServerConf struct {
 	Logger log.Logger
 	TLS    *HttpTransportTLS
 
-	Context context.Context
-	Engine  consensus.CoordEngine
+	Context  context.Context
+	Engine   consensus.CoordEngine
+	Explorer RaftExplorer
 }

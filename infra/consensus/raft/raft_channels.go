@@ -54,7 +54,7 @@ func (srv *RaftServer) serveRaftHandlerChannels() {
 			case rd := <-srv.raft.Ready():
 				srv.mu.Lock()
 				if !raft.IsEmptySnap(rd.Snapshot) {
-					fmt.Printf("node %d has snapshot at index %d term %d\n", srv.nodeID, rd.Snapshot.Metadata.Index, rd.Snapshot.Metadata.Term)
+					srv.logger.Info("node %d has snapshot at index %d term %d\n", srv.nodeID, rd.Snapshot.Metadata.Index, rd.Snapshot.Metadata.Term)
 				}
 
 				if !raft.IsEmptySnap(rd.Snapshot) {
@@ -69,10 +69,34 @@ func (srv *RaftServer) serveRaftHandlerChannels() {
 				srv.storage.Append(rd.Entries)
 				srv.transport.Send(srv.processMessages(rd.Messages))
 				srv.publishEntries(rd.CommittedEntries)
+				if len(rd.ReadStates) != 0 {
+					for _, rs := range rd.ReadStates {
+						srv.readStateC <- rs
+					}
+				}
 				srv.raft.Advance()
 				srv.mu.Unlock()
 			}
 		}
+	}()
+}
+
+func (srv *RaftServer) serveRaftRead() {
+	go func() {
+		for {
+			select {
+			case <-srv.doneC:
+				return
+			case rs, ok := <-srv.readStateC:
+				if !ok {
+					continue
+				}
+				if err := srv.engine.ReadHandle(rs.Index, rs.RequestCtx); err != nil {
+					srv.errorC <- fmt.Errorf("read index error:%v", err)
+				}
+			}
+		}
+
 	}()
 }
 
